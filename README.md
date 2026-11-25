@@ -1,102 +1,142 @@
+# Video2Quiz
 
+Video2Quiz turns learning videos into transcripts and practice quizzes. Upload a video or submit a public YouTube URL, review the transcript and generated questions, then take a quiz and review saved results.
 
-## Included
-- FastAPI backend with Swagger docs and Postman-ready endpoints
-- MySQL persistence via SQLAlchemy (tables are created at startup)
-- Video upload with extension and size validation
-- Public YouTube URL ingestion via yt-dlp
-- FFmpeg audio extraction
-- Whisper transcription with timestamped segments
-- Baseline transcript-derived MCQs stored in MySQL
-- Small React/Vite frontend to upload, track status, and view transcript/quiz
+## Live website
 
-## Still to build
-Authentication, durable task queue, advanced LLM-based question generation and quality verification,
-timed exam/submission, topic analytics, adaptive difficulty, migrations, deployment, and production UI.
-The MCQ generator here is an extractive baseline and must be reviewed before formal use.
+**Open the app:** [https://video2quiz-5roj.onrender.com](https://video2quiz-5roj.onrender.com)
 
-## Requirements
-Windows 10/11, Python 3.11, MySQL Server + Workbench, FFmpeg on PATH, Node.js 20+ for frontend.
-Run `ffmpeg -version` to verify FFmpeg.
+The frontend and API are deployed together on Render. The API documentation is available at [https://video2quiz-5roj.onrender.com/docs](https://video2quiz-5roj.onrender.com/docs).
 
-## 1. Create database in MySQL Workbench
-Run:
+## Features implemented
+
+- React and Vite interface for video upload, YouTube URL submission, processing status, transcripts, quizzes, and quiz history.
+- FastAPI API with endpoints documented in Swagger at `/docs`.
+- Video upload validation for MP4, MOV, MKV, WebM, and AVI files. The default upload limit is 500 MB and can be changed with `MAX_UPLOAD_MB`.
+- Public YouTube video download using yt-dlp.
+- Audio extraction using FFmpeg and transcription using OpenAI Whisper, including timestamped transcript segments.
+- Transcript-based multiple-choice question generation. This is an extractive baseline, so review questions before using them for formal assessment.
+- Versioned quizzes, exam attempts, saved scores, answer explanations, and historical results.
+- SQLAlchemy database support with Alembic migrations. The hosted Render deployment uses PostgreSQL; the example local configuration uses MySQL.
+
+## Run locally on Windows
+
+### Requirements
+
+- Python 3.11
+- Node.js 20 or newer
+- FFmpeg available on `PATH`
+- A MySQL database (or another database supported by the configured SQLAlchemy URL)
+
+Check FFmpeg with:
+
+```powershell
+ffmpeg -version
+```
+
+### 1. Configure the database
+
+Create the local database in MySQL Workbench:
+
 ```sql
 CREATE DATABASE video2quiz CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
-The app creates the tables on startup.
 
-## 2. Configure
-Copy `.env.example` to `.env` in the project root and edit the MySQL credentials.
-Do not commit `.env` or share your database password.
+From the project root, copy `.env.example` to `.env` and set `DATABASE_URL` to your local database credentials. Keep `.env` private; it is ignored by Git.
 
-## 3. Backend setup (PowerShell, project root)
+### 2. Install backend dependencies and migrate the database
+
+Run these commands from the project root in PowerShell:
+
 ```powershell
 py -3.11 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+.\venv\Scripts\alembic.exe upgrade head
 ```
-If PowerShell blocks activation, run once:
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-Reopen the terminal and activate the environment.
 
-## 4. Start backend
-Ensure MySQL Server is running and FFmpeg works, then:
+For an existing database, review the migration guidance below before applying migrations.
+
+### 3. Start the API
+
+Keep MySQL and FFmpeg available, then run from the project root:
+
 ```powershell
 uvicorn backend.main:app --reload
 ```
-Open http://127.0.0.1:8000/ and http://127.0.0.1:8000/docs
 
-## 5. Start frontend (second terminal)
+The API runs at `http://127.0.0.1:8000`; API docs are at `http://127.0.0.1:8000/docs`.
+
+### 4. Start the frontend
+
+Open a second terminal at the project root, then:
+
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
-Open the Vite URL, normally http://localhost:5173.
 
-## 6. Test with Postman
-Upload:
-- POST `http://127.0.0.1:8000/api/videos/upload`
-- Body > form-data; key `file` set to File; select a supported video.
+Open the Vite URL, normally `http://localhost:5173`. Keep the backend terminal running as well; the Vite development server forwards `/api` requests to it.
 
-YouTube:
-- POST `http://127.0.0.1:8000/api/videos/youtube`
-- Body > raw > JSON: `{"url":"https://www.youtube.com/watch?v=VIDEO_ID"}`
+## API endpoints
 
-Status/results:
-- GET `/api/videos`
-- GET `/api/videos/1`
-- GET `/api/videos/1/transcript`
-- GET `/api/videos/1/quiz`
-Use the actual video ID returned by the API. Keep the backend running while processing.
+All endpoints are under `/api`:
 
-## Troubleshooting
-- MySQL connection refused: start MySQL Server and check port 3306.
-- Access denied: check username/password and grants.
-- `ffmpeg` not recognized: add the folder containing `ffmpeg.exe` (e.g. `C:\\ffmpeg\\bin`) to Windows PATH and restart VS Code.
-- Whisper can be slow. Set `WHISPER_MODEL=tiny` in `.env` for an initial test.
-- YouTube downloads require yt-dlp's JavaScript challenge solver and a supported JavaScript runtime. Install the project requirements in the backend venv with `python -m pip install -r requirements.txt`; Node.js 22+ is enabled automatically when it is on PATH. Restart the backend after installing or updating dependencies. The app retries transient requests and shows a shorter troubleshooting message; technical details remain in the backend terminal.
-- If YouTube requires you to sign in, close the browser first, then set `YOUTUBE_COOKIES_FROM_BROWSER=chrome` in `.env` (or `edge` / `firefox`) and restart the backend. This reads your browser's YouTube session; keep `.env` private. Cookie access is not a workaround for content you are not authorized to access.
-- YouTube can still block automated downloads based on video restrictions, account checks, or network/firewall rules. In that case, upload a video file you have permission to use. Follow YouTube's terms.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/videos/upload` | Upload a video file |
+| `POST` | `/videos/youtube` | Submit a public YouTube URL |
+| `GET` | `/videos` | List recent videos |
+| `GET` | `/videos/{video_id}` | Get video status and details |
+| `GET` | `/videos/{video_id}/transcript` | Get transcript and timestamped segments |
+| `GET` | `/videos/{video_id}/quiz` | Get the latest generated quiz |
+| `POST` | `/videos/{video_id}/evaluate` | Grade quiz answers |
+| `POST` | `/videos/{video_id}/attempts` | Start and save a quiz attempt |
+| `POST` | `/videos/attempts/{attempt_id}/submit` | Submit and save an attempt |
+| `GET` | `/videos/{video_id}/attempts` | List saved attempts for a video |
+| `GET` | `/videos/attempts/{attempt_id}` | View a saved attempt result |
+
+## Deployment on Render
+
+The repository includes a `render.yaml` Blueprint and a Dockerfile. The Blueprint deploys the app and a PostgreSQL database in Singapore; database migrations run when the service starts.
+
+- **Live app:** [video2quiz-5roj.onrender.com](https://video2quiz-5roj.onrender.com)
+- **GitHub repository:** [chitras112/video2_quiz](https://github.com/chitras112/video2_quiz)
+
+The current deployment uses Render's free plans for demonstration. Free web services can sleep when idle, and their local files are temporary. The free PostgreSQL database expires after 30 days. Whisper processing can also exceed the free web service's memory limit. See [Render's free plan limitations](https://render.com/docs/free.md).
+
+The app currently has no sign-in or user accounts. Anyone with the public link can submit videos or YouTube URLs. Do not upload sensitive videos.
+
+## Configuration
+
+The project root `.env` file supports:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `DATABASE_URL` | SQLAlchemy database connection | Set in `.env` |
+| `VIDEO2QUIZ_DATA_DIR` | Directory for uploaded videos and generated files | `./data` |
+| `MAX_UPLOAD_MB` | Maximum uploaded file size in MB | `500` |
+| `WHISPER_MODEL` | Whisper model size (`tiny`, `base`, etc.) | `base` |
+| `YOUTUBE_COOKIES_FROM_BROWSER` | Optional local browser cookie source for YouTube | Unset |
+
+Set `WHISPER_MODEL=tiny` for a quicker local first run. Model speed and transcription quality vary by model size and available hardware.
 
 ## Database migrations
 
-Alembic is the schema lifecycle mechanism. The API startup no longer calls `Base.metadata.create_all()`. Set `DATABASE_URL` in the local environment or `.env` file; credentials are not stored in `alembic.ini` or migration scripts.
-
-For a **fresh database**, create an empty database, then run from the project root:
+Alembic manages the schema; the API does not create tables automatically. For a fresh database, run:
 
 ```powershell
 .\venv\Scripts\alembic.exe upgrade head
 ```
 
-The baseline creates the existing `videos`, `transcripts`, and `questions` schema, then the next migration adds `questions.quiz_version`. The following additive revision creates `exam_attempts` and `exam_responses`.
+The migrations create the initial video, transcript, and question tables, add quiz versioning, and add exam attempt and response tables.
 
-Quiz generation now preserves earlier question rows and assigns each successful non-empty generation the next per-video version. Quiz retrieval and grading use only the latest stored version; grading rejects submitted IDs from older versions. The quiz response adds a top-level `quiz_version` integer (or `null` when no quiz exists) while retaining its existing fields. Existing questions become version 1 through the migration; the first successful regeneration after migration will therefore be version 2.
+For an existing MySQL database, do not run the baseline migration until the live schema has been compared with `migrations/versions/0001_existing_schema_baseline.py`. The existing schema must match before an operator stamps the baseline and applies later migrations. Review the migration files and back up the database before making schema changes; MySQL may commit DDL implicitly.
 
-For the **existing MySQL database**, do not run `upgrade` against it until its live schema has been compared with `0001_existing_schema_baseline.py` and all tables, columns, types, nullability, keys, and indexes match. Resolve any differences with a reviewed migration or a separately reviewed schema change. Only after reconciliation should an operator explicitly stamp the baseline revision (`0001_existing_schema`) and then apply later migrations. Stamping is not automatic and does not inspect or modify the schema. This repository does not run `stamp` as part of startup.
+## Current work and next steps
 
-MySQL may commit DDL implicitly. If a migration fails, inspect the schema and data before retrying or downgrading; do not assume automatic rollback. The question-version downgrade removes only its index and column, while the baseline downgrade is deliberately blocked because dropping its tables would delete application data.
+Implemented work includes the application UI and API, local video and YouTube ingestion, transcription, quiz generation, saved quiz attempts, migrations, and a public Render deployment.
+
+Possible next improvements include user authentication, a durable job queue for long video processing, persistent object storage for uploaded media, and more advanced question generation and quality checks.
