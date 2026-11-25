@@ -1,4 +1,4 @@
-# Video2Quiz — 50% implementation milestone
+
 
 ## Included
 - FastAPI backend with Swagger docs and Postman-ready endpoints
