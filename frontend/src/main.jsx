@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './style.css'
 
-const API = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api' : 'http://127.0.0.1:8000/api')).replace(/\/$/, '')
+const API = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 const ACCEPTED_EXTENSIONS = ['.mp4', '.mov', '.mkv', '.webm', '.avi']
 
 function Icon({ name, size = 20 }) {

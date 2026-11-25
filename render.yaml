@@ -1,0 +1,24 @@
+databases:
+  - name: video2quiz-db
+    databaseName: video2quiz
+    user: video2quiz
+    region: singapore
+    plan: free
+    postgresMajorVersion: "18"
+
+services:
+  - type: web
+    name: video2quiz
+    runtime: docker
+    region: singapore
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: video2quiz-db
+          property: connectionString
+      - key: VIDEO2QUIZ_DATA_DIR
+        value: /tmp/video2quiz
+      - key: WHISPER_MODEL
+        value: tiny
