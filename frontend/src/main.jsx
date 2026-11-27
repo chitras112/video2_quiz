@@ -387,6 +387,10 @@ function App() {
 
   function processingView(video) {
     const values = processingStages(video.status)
+    const storedError = video.error_message || 'Processing failed. The backend did not provide an error message.'
+    const displayError = video.source_type === 'youtube' && storedError.startsWith('yt-dlp could not download this video.')
+      ? 'YouTube may have blocked this download with a sign-in or bot check. Try a different public video, run Video2Quiz locally with an authorized browser session, or upload a video file you are allowed to use.'
+      : storedError
     const labels = [
       ['Video ingestion', 'Upload or source download'],
       ['Audio extraction', 'FFmpeg · mono 16 kHz audio'],
@@ -403,7 +407,7 @@ function App() {
           <span className="pipeline-state">{state === 'complete' ? 'Complete' : state === 'active' ? 'In progress' : state === 'unknown' ? 'Not reported' : state === 'unavailable' ? 'Not generated' : 'Queued'}</span>
         </div>
       })}
-      {video.status === 'failed' && <div className="inline-alert error-alert"><Icon name="alert"/><span>{video.error_message || 'Processing failed. The backend did not provide an error message.'}</span></div>}
+      {video.status === 'failed' && <div className="inline-alert error-alert"><Icon name="alert"/><span>{displayError}</span></div>}
       {video.status === 'completed_no_speech' && <div className="inline-alert info-alert">Processing finished, but the transcript contained no speech for quiz generation.</div>}
     </div>
   }

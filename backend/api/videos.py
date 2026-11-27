@@ -154,26 +154,31 @@ def download_and_process_youtube(video_id: int, url: str):
         logger.exception("YouTube download failed for video %s", video_id)
         video = db.query(Video).filter(Video.id == video_id).first()
         if video:
-            message = str(exc).lower()
+            message = str(exc).casefold().replace("’", "'").replace("‘", "'")
             if "winerror 10013" in message or "forbidden by its access permissions" in message:
                 detail = ("This computer or network blocked the connection to YouTube. Try another network, "
                           "check firewall/VPN settings, or upload the video file directly.")
+            elif "bot" in message and any(marker in message for marker in ("confirm", "sign in", "login_required")):
+                detail = ("YouTube blocked this automated download with a sign-in or bot check. The server cannot "
+                          "complete that check. Try a different public video, run Video2Quiz locally with an "
+                          "authorized browser session, or upload a video file you are allowed to use.")
             elif "video is not available" in message or "private video" in message:
                 detail = ("yt-dlp could not access this video. Confirm it is public and playable without signing in, "
                           "then update yt-dlp. If YouTube requires sign-in, configure YOUTUBE_COOKIES_FROM_BROWSER "
                           "in .env (chrome, edge, or firefox) and restart the backend.")
             elif "sign in" in message or "confirm you're not a bot" in message:
-                detail = ("YouTube requires a signed-in session for this video. Set "
-                          "YOUTUBE_COOKIES_FROM_BROWSER=chrome (or edge/firefox) in .env and restart the backend, "
-                          "or upload the video file directly.")
+                detail = ("YouTube requires a signed-in session for this video. Run Video2Quiz locally with "
+                          "YOUTUBE_COOKIES_FROM_BROWSER set to a signed-in browser, or upload a video file you are "
+                          "allowed to use. Do not share browser cookies.")
             elif "javascript runtime" in message or "challenge solver" in message or "yt-dlp-ejs" in message:
                 detail = ("YouTube download support is missing its JavaScript challenge solver. Install the backend "
                           "requirements with `python -m pip install -r requirements.txt`, then restart the backend.")
             elif "timed out" in message or "connection" in message or "urlopen error" in message:
                 detail = "Could not connect reliably to YouTube. Check your internet, firewall, or VPN and retry."
             else:
-                detail = ("yt-dlp could not download this video. Update yt-dlp and retry; if it still fails, "
-                          "upload the video file directly. See backend logs for technical details.")
+                detail = ("YouTube could not provide a downloadable video to the server. It may be unavailable, "
+                          "restricted, or blocked for automated access. Try another public video or upload a video "
+                          "file you are allowed to use. See backend logs for technical details.")
             video.status, video.error_message = "failed", detail
             db.commit()
         return

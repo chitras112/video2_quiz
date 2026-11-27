@@ -109,6 +109,8 @@ The current deployment uses Render's free plans for demonstration. Free web serv
 
 The app currently has no sign-in or user accounts. Anyone with the public link can submit videos or YouTube URLs. Do not upload sensitive videos.
 
+YouTube may block automated downloads from cloud servers with a sign-in or bot check, even when a video is public. If this happens, try another public video, run the app locally with an authorized browser session, or upload a video file you are allowed to use. Do not share browser cookies.
+
 ## Configuration
 
 The project root `.env` file supports:
